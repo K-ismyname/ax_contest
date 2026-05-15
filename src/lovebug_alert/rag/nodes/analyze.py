@@ -22,10 +22,5 @@ def _dd_to_level(dd: float) -> str:
 
 
 def analyze_risk(state: AgentState) -> dict[str, Any]:
-    """현재 누적 DD를 임계값과 비교해 서울 전체 및 구별 경보 레벨을 반환한다."""
-    level = _dd_to_level(state["current_dd"])
-    district_risk = {
-        district: _dd_to_level(dd)
-        for district, dd in state.get("district_dd", {}).items()
-    }
-    return {"risk_level": level, "district_risk": district_risk}
+    """현재 누적 DD를 임계값과 비교해 서울 전체 경보 레벨을 반환한다."""
+    return {"risk_level": _dd_to_level(state["current_dd"])}

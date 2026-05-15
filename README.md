@@ -159,7 +159,7 @@ from lovebug_alert.rag.graph import build_daily_graph
 g = build_daily_graph()
 g.invoke({'date': date.today().isoformat(),
           'weather_today': {}, 'observations_today': [],
-          'current_dd': 0.0, 'district_dd': {}, 'district_risk': {},
+          'current_dd': 0.0,
           'reports_today': [], 'risk_level': '정상', 'rag_summary': '',
           'email_sent': False, 'report': {}, 'citizen_answer': '', 'map_path': '',
           'photo_verified': None, 'verification_note': ''})

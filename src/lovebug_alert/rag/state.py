@@ -22,8 +22,6 @@ class AgentState(TypedDict):
     weather_today: dict[str, Any]  # {district: {max, min, mean, precip}}
     observations_today: list[dict] # GBIF 관찰 기록
     current_dd: float              # 서울 평균 누적 DD (1/1 기준)
-    district_dd: dict[str, float]  # {구명: 누적DD}
-    district_risk: dict[str, str]  # {구명: 경보단계}
     reports_today: list[dict]      # 당일 시민 제보 목록
     risk_level: str                # "정상" | "관심" | "주의" | "경보"
     rag_summary: str               # 담당자용 RAG 대응 요약

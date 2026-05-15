@@ -12,7 +12,8 @@ import streamlit.components.v1 as components
 
 from lovebug_alert.data.open_meteo import SEOUL_DISTRICT_COORDS
 from lovebug_alert.ui.state_loader import (
-    get_dd_ratio, get_district_report_counts, get_prediction_dday, get_risk_color,
+    get_dd_ratio, get_district_report_counts, get_historical_district_counts,
+    get_prediction_dday, get_risk_color,
 )
 
 _VERIFIED_NOTE = "✅ Vision AI 검증 제보만 집계"
@@ -85,48 +86,39 @@ def _render_rag_section(risk_level: str, rag_summary: str) -> None:
             )
 
 
-_RISK_FOLIUM_COLOR = {"경보": "red", "주의": "orange", "관심": "blue", "정상": "lightgray"}
-_RISK_EMOJI = {"경보": "🔴", "주의": "🟡", "관심": "🔵", "정상": "🟢"}
+def _render_district_map(reports_df: pd.DataFrame) -> None:
+    st.subheader("서울 구별 러브버그 출몰 현황 (2025년 실제 관측 데이터)")
+    st.caption("iNaturalist 2025년 관측 기록 기반 · 원 크기 = 관측 건수 · 빨간 마커 = 오늘 시민 확인 제보")
 
-
-def _render_district_map(reports_df: pd.DataFrame, app_state: dict) -> None:
-    left, right = st.columns(2)
-    district_dd: dict[str, float] = app_state.get("district_dd", {})
-    district_risk: dict[str, str] = app_state.get("district_risk", {})
+    hist_counts = get_historical_district_counts(year=2025)
     report_counts = get_district_report_counts(reports_df, verified_only=True)
+    max_count = max(hist_counts.values(), default=1)
 
-    # 경보 단계 → DD 높은 순으로 정렬
-    sorted_districts = sorted(
-        district_dd.items(), key=lambda x: x[1], reverse=True
-    )
-
-    with left:
-        st.subheader("구별 경보 현황")
-        st.caption(_VERIFIED_NOTE)
-        for name, dd_val in sorted_districts[:10]:
-            level = district_risk.get(name, "정상")
-            count = report_counts.get(name, 0)
-            emoji = _RISK_EMOJI[level]
-            count_label = f" · 제보 {count}건" if count else ""
-            st.write(f"{emoji} **{name}** — DD {dd_val:.0f} ({level}){count_label}")
-
-    with right:
-        st.subheader("서울 구별 경보 지도")
-        m = folium.Map(location=[37.5665, 126.9780], zoom_start=11)
-        for district, (lat, lng) in SEOUL_DISTRICT_COORDS.items():
-            level = district_risk.get(district, "정상")
-            dd_val = district_dd.get(district, 0.0)
-            count = report_counts.get(district, 0)
-            color = _RISK_FOLIUM_COLOR[level]
-            folium.CircleMarker(
+    m = folium.Map(location=[37.5665, 126.9780], zoom_start=11)
+    for district, (lat, lng) in SEOUL_DISTRICT_COORDS.items():
+        obs = hist_counts.get(district, 0)
+        today_reports = report_counts.get(district, 0)
+        radius = 5 + (obs / max_count) * 18
+        color = "red" if obs >= 8 else ("orange" if obs >= 4 else ("blue" if obs >= 1 else "lightgray"))
+        popup_lines = [f"<b>{district}</b>", f"2025년 관측: {obs}건"]
+        if today_reports:
+            popup_lines.append(f"오늘 확인 제보: {today_reports}건")
+        folium.CircleMarker(
+            [lat, lng],
+            radius=radius,
+            color=color,
+            fill=True,
+            fill_opacity=0.65,
+            popup="<br>".join(popup_lines),
+            tooltip=f"{district} ({obs}건)",
+        ).add_to(m)
+        if today_reports:
+            folium.Marker(
                 [lat, lng],
-                radius=10,
-                color=color,
-                fill=True,
-                fill_opacity=0.7,
-                popup=f"{district}<br>DD: {dd_val:.0f} | {level}<br>확인 제보: {count}건",
+                icon=folium.Icon(color="red", icon="bug", prefix="fa"),
+                popup=f"{district} 오늘 확인 제보 {today_reports}건",
             ).add_to(m)
-        components.html(m._repr_html_(), height=380)
+    components.html(m._repr_html_(), height=420)
 
 
 def render_official_view(app_state: dict) -> None:
@@ -142,4 +134,4 @@ def render_official_view(app_state: dict) -> None:
     _render_dd_progress(current_dd)
     _render_rag_section(risk_level, rag_summary)
     st.divider()
-    _render_district_map(reports_df, app_state)
+    _render_district_map(reports_df)

@@ -107,6 +107,7 @@ def _render_report_form(app_state: dict) -> None:
 
     # ── 제보 폼 ────────────────────────────────────────────────────────────
     with st.form("report_form"):
+        report_date = st.date_input("발견 날짜", value=dt.today())
         location_type = st.selectbox("발견 장소", _LOCATION_TYPES)
         scale = st.radio("발견 규모", _SCALES, horizontal=True)
         photo = st.file_uploader("사진 첨부 (필수)", type=["jpg", "jpeg", "png"])
@@ -128,7 +129,7 @@ def _render_report_form(app_state: dict) -> None:
         (save_dir / photo.name).write_bytes(photo.read())
 
         report = {
-            "date": dt.today().isoformat(),
+            "date": report_date.isoformat(),
             "location": addr_name,
             "latitude": lat,
             "longitude": lng,

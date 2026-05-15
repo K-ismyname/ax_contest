@@ -11,6 +11,43 @@ import pandas as pd
 
 from lovebug_alert.data.open_meteo import SEOUL_DISTRICT_COORDS
 
+INATURALIST_JSON = Path("data/raw/inaturalist_Plecia_2022-01-01_2025-12-31.json")
+
+
+def _nearest_district(lat: float, lng: float) -> str:
+    """가장 가까운 서울 자치구 이름을 반환한다."""
+    return min(
+        SEOUL_DISTRICT_COORDS.items(),
+        key=lambda kv: (kv[1][0] - lat) ** 2 + (kv[1][1] - lng) ** 2,
+    )[0]
+
+
+def get_historical_district_counts(year: int = 2025) -> dict[str, int]:
+    """iNaturalist 데이터에서 특정 연도 구별 러브버그 관측 건수를 반환한다."""
+    if not INATURALIST_JSON.exists():
+        return {}
+    try:
+        records = json.loads(INATURALIST_JSON.read_text(encoding="utf-8"))["results"]
+    except Exception:
+        return {}
+    counts: dict[str, int] = {}
+    year_prefix = str(year)
+    for rec in records:
+        if not str(rec.get("observed_on", "")).startswith(year_prefix):
+            continue
+        loc = rec.get("location", "")
+        if not loc:
+            continue
+        try:
+            lat, lng = map(float, loc.split(","))
+        except ValueError:
+            continue
+        if not (37.4 <= lat <= 37.7 and 126.7 <= lng <= 127.3):
+            continue
+        district = _nearest_district(lat, lng)
+        counts[district] = counts.get(district, 0) + 1
+    return counts
+
 STREAMLIT_STATE_PATH = Path("data/processed/streamlit_state.json")
 REPORTS_CSV = Path("data/reports.csv")
 DD_ANALYSIS_CSV = Path("data/processed/dd_analysis.csv")
@@ -28,7 +65,6 @@ def load_state() -> dict[str, Any]:
     if not STREAMLIT_STATE_PATH.exists():
         return {
             "date": "N/A", "current_dd": 0.0,
-            "district_dd": {}, "district_risk": {},
             "risk_level": "정상", "reports_count": 0,
             "rag_summary": "", "updated_at": "N/A",
         }
