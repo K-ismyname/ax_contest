@@ -86,65 +86,42 @@ def _render_rag_section(risk_level: str, rag_summary: str) -> None:
             )
 
 
-def _glow_marker(lat: float, lng: float, obs: int, max_count: int, today_reports: int, district: str) -> folium.Marker:
+def _bubble_marker(lat: float, lng: float, obs: int, max_count: int, today_reports: int, district: str) -> folium.Marker:
     ratio = obs / max_count if max_count else 0
-    size = int(24 + ratio * 44)  # 24px ~ 68px
+    size = int(28 + ratio * 36)  # 28px ~ 64px
     if obs >= 8:
-        core, mid, glow = "255,60,60", "255,30,30", "255,50,50"
+        bg, border = "#ef4444", "#b91c1c"
     elif obs >= 4:
-        core, mid, glow = "255,150,30", "255,120,0", "255,140,20"
+        bg, border = "#f97316", "#c2410c"
     elif obs >= 1:
-        core, mid, glow = "80,160,255", "40,120,255", "60,140,255"
+        bg, border = "#3b82f6", "#1d4ed8"
     else:
-        core, mid, glow = "100,100,120", "80,80,100", "90,90,110"
+        bg, border = "#d1d5db", "#9ca3af"
 
-    pulse = (
-        f"@keyframes pulse{{0%{{box-shadow:0 0 0 0 rgba({glow},0.5);}}"
-        f"70%{{box-shadow:0 0 0 {size//2}px rgba({glow},0);}}100%{{box-shadow:0 0 0 0 rgba({glow},0);}}}}"
-    ) if obs >= 1 else ""
-    anim = "animation:pulse 2s infinite;" if obs >= 1 else ""
+    text_color = "#fff" if obs >= 1 else "#6b7280"
+    font_size = max(9, min(13, size // 3))
+    count_label = str(obs) if obs > 0 else "·"
+    report_badge = (
+        f'<div style="position:absolute;top:-4px;right:-4px;width:14px;height:14px;'
+        f'border-radius:50%;background:#fff;border:2px solid {bg};'
+        f'display:flex;align-items:center;justify-content:center;'
+        f'font-size:8px;font-weight:700;color:{bg};">{today_reports}</div>'
+    ) if today_reports else ""
 
-    label_html = ""
-    if obs > 0:
-        label_html = (
-            f'<div style="position:absolute;top:{size+2}px;left:50%;transform:translateX(-50%);"'
-            f'style="white-space:nowrap;color:rgba({core},1);font-size:10px;font-weight:700;'
-            f'text-shadow:0 0 6px rgba({glow},0.9);">{obs}건</div>'
-        )
-    report_ring = ""
+    html = (
+        f'<div style="position:relative;width:{size}px;height:{size}px;">'
+        f'<div style="width:{size}px;height:{size}px;border-radius:50%;'
+        f'background:{bg};border:2px solid {border};'
+        f'box-shadow:0 2px 8px rgba(0,0,0,0.25);'
+        f'display:flex;align-items:center;justify-content:center;">'
+        f'<span style="color:{text_color};font-size:{font_size}px;font-weight:700;'
+        f'font-family:sans-serif;line-height:1;">{count_label}</span>'
+        f'</div>{report_badge}</div>'
+    )
+
+    popup_lines = [f"<b>{district}</b>", f"2025년 관측: {obs}건"]
     if today_reports:
-        ring = size + 10
-        report_ring = (
-            f'<div style="position:absolute;top:{-(ring-size)//2}px;left:{-(ring-size)//2}px;'
-            f'width:{ring}px;height:{ring}px;border-radius:50%;'
-            f'border:2px solid rgba(255,255,255,0.9);'
-            f'box-shadow:0 0 12px rgba(255,255,255,0.7);"></div>'
-        )
-
-    html = f"""
-<style>{pulse}</style>
-<div style="position:relative;width:{size}px;height:{size}px;">
-  {report_ring}
-  <div style="
-    width:{size}px;height:{size}px;border-radius:50%;
-    background:radial-gradient(circle at 35% 35%,
-      rgba({core},0.95) 0%,
-      rgba({mid},0.75) 45%,
-      rgba({glow},0.2) 75%,
-      transparent 100%);
-    box-shadow:0 0 {size//2}px rgba({glow},0.7),0 0 {size}px rgba({glow},0.3);
-    border:1px solid rgba({core},0.6);
-    {anim}
-  "></div>
-  {label_html}
-</div>"""
-
-    popup_lines = [
-        f'<b style="color:#fff">{district}</b>',
-        f'2025년 관측: <b>{obs}건</b>',
-    ]
-    if today_reports:
-        popup_lines.append(f'오늘 확인 제보: <b style="color:#f88">{today_reports}건</b>')
+        popup_lines.append(f"오늘 확인 제보: {today_reports}건")
 
     return folium.Marker(
         [lat, lng],
@@ -153,22 +130,14 @@ def _glow_marker(lat: float, lng: float, obs: int, max_count: int, today_reports
             icon_size=(size, size),
             icon_anchor=(size // 2, size // 2),
         ),
-        popup=folium.Popup(
-            f'<div style="background:#1a1a2e;color:#eee;padding:8px 12px;border-radius:6px;min-width:120px">'
-            + "<br>".join(popup_lines) + "</div>",
-            max_width=180,
-        ),
-        tooltip=folium.Tooltip(
-            f'<span style="color:#fff;background:#333;padding:3px 8px;border-radius:4px;">'
-            f'{district} {obs}건</span>',
-            sticky=True,
-        ),
+        popup=folium.Popup("<br>".join(popup_lines), max_width=160),
+        tooltip=folium.Tooltip(f"{district} {obs}건", sticky=True),
     )
 
 
 def _render_district_map(reports_df: pd.DataFrame) -> None:
     st.subheader("서울 구별 러브버그 출몰 현황 (2025년 실제 관측 데이터)")
-    st.caption("iNaturalist 2025 관측 기록 · 원 크기 = 관측 건수 · 흰 테두리 = 오늘 시민 확인 제보")
+    st.caption("iNaturalist 2025 관측 기록 · 원 크기 = 관측 건수 · 흰 배지 = 오늘 시민 확인 제보")
 
     hist_counts = get_historical_district_counts(year=2025)
     report_counts = get_district_report_counts(reports_df, verified_only=True)
@@ -177,13 +146,13 @@ def _render_district_map(reports_df: pd.DataFrame) -> None:
     m = folium.Map(
         location=[37.5665, 126.9780],
         zoom_start=11,
-        tiles="CartoDB dark_matter",
+        tiles="CartoDB positron",
     )
     for district, (lat, lng) in SEOUL_DISTRICT_COORDS.items():
         obs = hist_counts.get(district, 0)
         today_reports = report_counts.get(district, 0)
-        _glow_marker(lat, lng, obs, max_count, today_reports, district).add_to(m)
-    components.html(m._repr_html_(), height=460)
+        _bubble_marker(lat, lng, obs, max_count, today_reports, district).add_to(m)
+    components.html(m._repr_html_(), height=450)
 
 
 def render_official_view(app_state: dict) -> None:
