@@ -7,7 +7,7 @@ from langgraph.graph import StateGraph, END
 from lovebug_alert.rag.state import AgentState
 from lovebug_alert.rag.nodes.collect import collect_weather, collect_observations
 from lovebug_alert.rag.nodes.compute import compute_dd, aggregate_reports
-from lovebug_alert.rag.nodes.analyze import analyze_risk
+from lovebug_alert.rag.nodes.analyze import analyze_risk, llm_risk_review
 from lovebug_alert.rag.nodes.rag import generate_rag_summary, rag_citizen_response
 from lovebug_alert.rag.nodes.notify import notify_official, return_response
 
@@ -28,6 +28,7 @@ def build_daily_graph():
     g.add_node("compute_dd", compute_dd)
     g.add_node("aggregate_reports", aggregate_reports)
     g.add_node("analyze_risk", analyze_risk)
+    g.add_node("llm_risk_review", llm_risk_review)
     g.add_node("generate_rag_summary", generate_rag_summary)
     g.add_node("notify_official", notify_official)
 
@@ -36,8 +37,9 @@ def build_daily_graph():
     g.add_edge("collect_observations", "compute_dd")
     g.add_edge("compute_dd", "aggregate_reports")
     g.add_edge("aggregate_reports", "analyze_risk")
+    g.add_edge("analyze_risk", "llm_risk_review")
     g.add_conditional_edges(
-        "analyze_risk",
+        "llm_risk_review",
         _risk_router,
         {"generate_rag_summary": "generate_rag_summary", "notify_official": "notify_official"},
     )

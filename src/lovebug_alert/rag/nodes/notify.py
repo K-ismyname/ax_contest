@@ -13,6 +13,7 @@ from typing import Any
 from lovebug_alert.rag.state import AgentState
 
 STREAMLIT_STATE_PATH = Path("data/processed/streamlit_state.json")
+HISTORY_PATH = Path("data/processed/dd_history.jsonl")
 NOTIFY_LEVELS = {"주의", "경보"}
 
 
@@ -50,6 +51,17 @@ def notify_official(state: AgentState) -> dict[str, Any]:
     }
     STREAMLIT_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
     STREAMLIT_STATE_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2))
+
+    history_entry = {
+        "date": state["date"],
+        "current_dd": state["current_dd"],
+        "risk_level": state["risk_level"],
+        "verified_reports": sum(
+            1 for r in state["reports_today"] if str(r.get("photo_verified")) == "True"
+        ),
+    }
+    with open(HISTORY_PATH, "a", encoding="utf-8") as f:
+        f.write(json.dumps(history_entry, ensure_ascii=False) + "\n")
 
     if state["risk_level"] in NOTIFY_LEVELS:
         subject = f"[러브버그 경보] {state['risk_level']} 단계 — {state['date']}"

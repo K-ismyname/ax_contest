@@ -2,9 +2,25 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 from langchain_anthropic import ChatAnthropic
+
+_HISTORY_PATH = Path("data/processed/dd_history.jsonl")
+
+
+def _dd_trend_sentence() -> str:
+    if not _HISTORY_PATH.exists():
+        return ""
+    lines = _HISTORY_PATH.read_text(encoding="utf-8").strip().splitlines()[-7:]
+    entries = [json.loads(l) for l in lines if l]
+    if len(entries) < 2:
+        return ""
+    delta = entries[-1]["current_dd"] - entries[0]["current_dd"]
+    days = len(entries) - 1
+    return f"최근 {days}일간 DD 변화: +{delta:.1f} (일평균 +{delta/days:.1f})."
 from langchain_classic.chains import RetrievalQA
 from langchain_core.prompts import PromptTemplate
 
@@ -33,7 +49,8 @@ def generate_rag_summary(state: AgentState) -> dict[str, Any]:
         report_count=len(state["reports_today"]),
     )
     chain = _build_chain(prompt)
-    result = chain.invoke({"query": f"경보 단계 {state['risk_level']} 대응 조치"})
+    trend = _dd_trend_sentence()
+    result = chain.invoke({"query": f"{trend} 경보 단계 {state['risk_level']} 대응 조치".strip()})
     return {"rag_summary": result.get("result", "")}
 
 
