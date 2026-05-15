@@ -1,5 +1,8 @@
 # Streamlit 러브버그 조기경보 시스템 진입점.
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import streamlit as st
 
 from lovebug_alert.ui.state_loader import load_app_state
