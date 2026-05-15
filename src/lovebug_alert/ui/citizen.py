@@ -141,7 +141,13 @@ def _render_report_form(app_state: dict) -> None:
         with st.spinner("사진 분석 및 AI 대처법 생성 중..."):
             try:
                 from lovebug_alert.rag.graph import build_report_graph
-                graph = build_report_graph()
+                import streamlit as _st
+
+                @_st.cache_resource
+                def _get_report_graph():
+                    return build_report_graph()
+
+                graph = _get_report_graph()
                 result = graph.invoke({
                     "date": dt.today().isoformat(),
                     "weather_today": {}, "observations_today": [],

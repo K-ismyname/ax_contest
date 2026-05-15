@@ -1,0 +1,6 @@
+[server]
+# data/ 디렉토리 변경은 앱 재실행 트리거에서 제외
+folderWatchBlacklist = ["data", ".venv", "__pycache__"]
+
+[client]
+showErrorDetails = true
