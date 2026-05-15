@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import json
+import os
 from datetime import date as dt
 from pathlib import Path
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 import pandas as pd
 import streamlit as st
@@ -13,6 +17,29 @@ from lovebug_alert.ui.state_loader import (
 )
 
 DD_THRESHOLD = 419.0
+_LOCATION_TYPES = ["공원/녹지", "주택가", "하천/수변", "도로변", "기타"]
+_SCALES = ["1~2마리", "10마리 이내", "대규모 (10마리 이상)"]
+_ACTIVE_LEVELS = {"관심", "주의", "경보"}
+
+
+def _search_address(query: str) -> tuple[float, float, str] | None:
+    """카카오 로컬 API로 주소를 위도·경도로 변환한다."""
+    api_key = os.getenv("KAKAO_API_KEY", "")
+    if not api_key or not query.strip():
+        return None
+    url = (
+        "https://dapi.kakao.com/v2/local/search/address.json?"
+        + urlencode({"query": query, "size": 1})
+    )
+    try:
+        req = Request(url, headers={"Authorization": f"KakaoAK {api_key}"})
+        with urlopen(req, timeout=5) as resp:
+            docs = json.loads(resp.read().decode("utf-8"))["documents"]
+        if not docs:
+            return None
+        return float(docs[0]["y"]), float(docs[0]["x"]), docs[0]["address_name"]
+    except Exception:
+        return None
 
 
 def _render_hero(risk_level: str, current_dd: float, date_str: str) -> None:
@@ -32,7 +59,12 @@ def _render_hero(risk_level: str, current_dd: float, date_str: str) -> None:
     )
 
 
-def _render_action_cards() -> None:
+def _render_action_cards(risk_level: str) -> None:
+    """주의·경보 단계일 때만 출현 대응 행동 카드를 표시한다."""
+    if risk_level not in _ACTIVE_LEVELS:
+        st.info("🟢 현재 러브버그 출현 전 단계입니다. 출현 시기가 다가오면 행동 요령이 안내됩니다.")
+        return
+
     st.subheader("지금 해야 할 행동")
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -46,32 +78,64 @@ def _render_action_cards() -> None:
 def _render_report_form(app_state: dict) -> None:
     """제보 폼을 렌더링하고 제출 시 report_graph를 실행한다."""
     st.subheader("🐛 러브버그 발견 제보")
+
+    # ── 주소 검색 (폼 외부 — 버튼 클릭 시 API 호출) ─────────────────────
+    col_addr, col_btn = st.columns([3, 1])
+    with col_addr:
+        address_query = st.text_input(
+            "발견 주소",
+            placeholder="예: 서울 은평구 불광동",
+            key="address_query",
+        )
+    with col_btn:
+        st.write("")  # 버튼 수직 정렬 맞춤
+        st.write("")
+        if st.button("주소 검색"):
+            result = _search_address(address_query)
+            if result:
+                st.session_state["resolved_address"] = result
+            else:
+                st.session_state["resolved_address"] = None
+                has_key = bool(os.getenv("KAKAO_API_KEY"))
+                msg = "주소를 찾지 못했습니다. 더 구체적으로 입력해주세요." if has_key \
+                    else "KAKAO_API_KEY가 설정되지 않았습니다."
+                st.error(msg)
+
+    resolved = st.session_state.get("resolved_address")
+    if resolved:
+        st.success(f"📍 {resolved[2]}")
+
+    # ── 제보 폼 ────────────────────────────────────────────────────────────
     with st.form("report_form"):
-        location = st.text_input("발견 위치 (예: 서울 은평구 불광동)")
-        col_lat, col_lng = st.columns(2)
-        with col_lat:
-            lat = st.number_input("위도", value=37.5665, format="%.4f")
-        with col_lng:
-            lng = st.number_input("경도", value=126.9780, format="%.4f")
-        description = st.text_area("상황 설명 (선택)", placeholder="예: 창문에 20마리 이상 붙어 있음")
-        photo = st.file_uploader("사진 첨부 (선택)", type=["jpg", "jpeg", "png"])
+        location_type = st.selectbox("발견 장소", _LOCATION_TYPES)
+        scale = st.radio("발견 규모", _SCALES, horizontal=True)
+        photo = st.file_uploader("사진 첨부 (필수)", type=["jpg", "jpeg", "png"])
         submitted = st.form_submit_button("제보하기")
 
-    if submitted and location:
+    if submitted:
+        if not resolved:
+            st.error("주소를 먼저 검색해주세요.")
+            return
+        if not photo:
+            st.error("사진을 첨부해주세요. AI가 러브버그 여부를 자동으로 판별합니다.")
+            return
+
+        lat, lng, addr_name = resolved
         photo_path = ""
-        if photo:
-            save_dir = Path("data/uploads")
-            save_dir.mkdir(parents=True, exist_ok=True)
-            photo_path = str(save_dir / photo.name)
-            (save_dir / photo.name).write_bytes(photo.read())
+        save_dir = Path("data/uploads")
+        save_dir.mkdir(parents=True, exist_ok=True)
+        photo_path = str(save_dir / photo.name)
+        (save_dir / photo.name).write_bytes(photo.read())
 
         report = {
             "date": dt.today().isoformat(),
-            "location": location,
+            "location": addr_name,
             "latitude": lat,
             "longitude": lng,
             "photo_path": photo_path,
-            "description": description,
+            "location_type": location_type,
+            "scale": scale,
+            "description": f"{location_type} / {scale}",
         }
 
         with st.spinner("사진 분석 및 AI 대처법 생성 중..."):
@@ -82,6 +146,7 @@ def _render_report_form(app_state: dict) -> None:
                     "date": dt.today().isoformat(),
                     "weather_today": {}, "observations_today": [],
                     "current_dd": float(app_state.get("current_dd", 0.0)),
+                    "district_dd": {}, "district_risk": {},
                     "reports_today": [], "risk_level": app_state.get("risk_level", "정상"),
                     "rag_summary": "", "email_sent": False,
                     "report": report,
@@ -95,6 +160,9 @@ def _render_report_form(app_state: dict) -> None:
                 citizen_answer = f"(AI 응답 생성 실패: {e})"
                 photo_verified = None
                 verification_note = ""
+
+        # 제출 후 주소 초기화
+        st.session_state["resolved_address"] = None
 
         st.success("제보가 접수되었습니다.")
         if photo_verified is True:
@@ -127,7 +195,7 @@ def _render_report_list(reports_df: pd.DataFrame) -> None:
     if reports_df.empty:
         st.write("아직 접수된 제보가 없습니다.")
         return
-    display_cols = ["date", "location", "description", "created_at"]
+    display_cols = ["date", "location", "location_type", "scale", "photo_verified", "created_at"]
     available = [c for c in display_cols if c in reports_df.columns]
     st.dataframe(
         reports_df[available].sort_values("created_at", ascending=False).head(20),
@@ -143,7 +211,7 @@ def render_citizen_view(app_state: dict) -> None:
     date_str = app_state.get("date", "N/A")
 
     _render_hero(risk_level, current_dd, date_str)
-    _render_action_cards()
+    _render_action_cards(risk_level)
     st.divider()
 
     left, right = st.columns(2)
