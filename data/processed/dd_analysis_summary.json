@@ -1,0 +1,48 @@
+{
+  "years_analyzed": [
+    2023,
+    2024,
+    2025
+  ],
+  "n_years_with_data": 3,
+  "base_temp_c": 10.0,
+  "pearson_r_doy_vs_dd": 0.9965,
+  "rows": [
+    {
+      "year": 2023,
+      "first_obs_date": "2023-06-16",
+      "doy": 167,
+      "locality": "Seoul",
+      "source": "iNaturalist research-grade observations",
+      "latitude": 37.510773,
+      "longitude": 126.954025,
+      "dd_at_first_obs": 475.47,
+      "dd_day_before_obs": 464.44,
+      "base_temp_c": 10.0
+    },
+    {
+      "year": 2024,
+      "first_obs_date": "2024-06-09",
+      "doy": 161,
+      "locality": "Seoul",
+      "source": "iNaturalist research-grade observations",
+      "latitude": 37.55,
+      "longitude": 127.098056,
+      "dd_at_first_obs": 418.64,
+      "dd_day_before_obs": 407.86,
+      "base_temp_c": 10.0
+    },
+    {
+      "year": 2025,
+      "first_obs_date": "2025-06-14",
+      "doy": 165,
+      "locality": "Seoul",
+      "source": "iNaturalist research-grade observations",
+      "latitude": 37.54882,
+      "longitude": 126.926537,
+      "dd_at_first_obs": 460.87,
+      "dd_day_before_obs": 446.11,
+      "base_temp_c": 10.0
+    }
+  ]
+}
