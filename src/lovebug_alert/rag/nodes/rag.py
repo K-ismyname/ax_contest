@@ -14,7 +14,7 @@ from lovebug_alert.rag.state import AgentState
 
 
 def _build_chain(prompt_str: str):
-    llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", max_tokens=512)
+    llm = ChatAnthropic(model="claude-sonnet-4-6", max_tokens=512)
     prompt = PromptTemplate.from_template(prompt_str)
     return RetrievalQA.from_chain_type(
         llm=llm,

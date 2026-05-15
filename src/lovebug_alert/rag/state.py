@@ -22,6 +22,8 @@ class AgentState(TypedDict):
     weather_today: dict[str, Any]  # {district: {max, min, mean, precip}}
     observations_today: list[dict] # GBIF 관찰 기록
     current_dd: float              # 서울 평균 누적 DD (1/1 기준)
+    district_dd: dict[str, float]  # {구명: 누적DD}
+    district_risk: dict[str, str]  # {구명: 경보단계}
     reports_today: list[dict]      # 당일 시민 제보 목록
     risk_level: str                # "정상" | "관심" | "주의" | "경보"
     rag_summary: str               # 담당자용 RAG 대응 요약
@@ -31,3 +33,5 @@ class AgentState(TypedDict):
     report: dict[str, Any]         # 시민 제보 단건
     citizen_answer: str            # RAG 시민 대처법 안내
     map_path: str                  # Folium HTML 경로
+    photo_verified: bool | None    # Vision LLM 러브버그 판별 결과
+    verification_note: str         # 판별 근거 한 문장

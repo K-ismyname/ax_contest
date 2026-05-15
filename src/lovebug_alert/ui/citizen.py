@@ -74,7 +74,7 @@ def _render_report_form(app_state: dict) -> None:
             "description": description,
         }
 
-        with st.spinner("AI 대처법 생성 중..."):
+        with st.spinner("사진 분석 및 AI 대처법 생성 중..."):
             try:
                 from lovebug_alert.rag.graph import build_report_graph
                 graph = build_report_graph()
@@ -86,12 +86,21 @@ def _render_report_form(app_state: dict) -> None:
                     "rag_summary": "", "email_sent": False,
                     "report": report,
                     "citizen_answer": "", "map_path": "",
+                    "photo_verified": None, "verification_note": "",
                 })
                 citizen_answer = result.get("citizen_answer", "")
+                photo_verified = result.get("photo_verified")
+                verification_note = result.get("verification_note", "")
             except Exception as e:
                 citizen_answer = f"(AI 응답 생성 실패: {e})"
+                photo_verified = None
+                verification_note = ""
 
-        st.success("제보가 접수되었습니다!")
+        st.success("제보가 접수되었습니다.")
+        if photo_verified is True:
+            st.success(f"✅ **러브버그 확인됨** — {verification_note}")
+        elif photo_verified is False:
+            st.warning(f"❌ **러브버그 미확인** — {verification_note}")
         if citizen_answer:
             st.info(f"**AI 대처법 안내**\n\n{citizen_answer}")
 

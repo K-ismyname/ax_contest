@@ -25,6 +25,8 @@ def save_report(state: AgentState) -> dict[str, Any]:
         "longitude": report.get("longitude", ""),
         "photo_path": report.get("photo_path", ""),
         "description": report.get("description", ""),
+        "photo_verified": state.get("photo_verified", None),
+        "verification_note": state.get("verification_note", ""),
         "created_at": datetime.now().isoformat(),
     }
     REPORTS_CSV.parent.mkdir(parents=True, exist_ok=True)
@@ -46,12 +48,15 @@ def update_map(state: AgentState) -> dict[str, Any]:
             for row in csv.DictReader(f):
                 try:
                     lat, lng = float(row["latitude"]), float(row["longitude"])
+                    verified = str(row.get("photo_verified", "")).strip()
+                    color = "red" if verified == "True" else "gray"
+                    label = "✅ 확인됨" if verified == "True" else ("❌ 미확인" if verified == "False" else "사진 없음")
                     folium.CircleMarker(
                         [lat, lng],
                         radius=6,
-                        color="red",
+                        color=color,
                         fill=True,
-                        popup=f"{row['date']} {row['location']}",
+                        popup=f"{label} | {row['date']} {row['location']}",
                     ).add_to(m)
                 except (ValueError, KeyError):
                     continue

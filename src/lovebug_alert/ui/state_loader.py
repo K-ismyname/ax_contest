@@ -27,8 +27,10 @@ def load_state() -> dict[str, Any]:
     """streamlit_state.json을 읽어 반환한다. 파일 없으면 기본값 반환."""
     if not STREAMLIT_STATE_PATH.exists():
         return {
-            "date": "N/A", "current_dd": 0.0, "risk_level": "정상",
-            "reports_count": 0, "rag_summary": "", "updated_at": "N/A",
+            "date": "N/A", "current_dd": 0.0,
+            "district_dd": {}, "district_risk": {},
+            "risk_level": "정상", "reports_count": 0,
+            "rag_summary": "", "updated_at": "N/A",
         }
     return json.loads(STREAMLIT_STATE_PATH.read_text(encoding="utf-8"))
 
@@ -51,10 +53,20 @@ def get_dd_ratio(current_dd: float) -> float:
     return min(current_dd / DD_THRESHOLD, 1.0)
 
 
-def get_district_report_counts(reports_df: pd.DataFrame) -> dict[str, int]:
-    """구별 제보 건수 딕셔너리를 반환한다 (구명 → 건수)."""
+def get_district_report_counts(
+    reports_df: pd.DataFrame,
+    *,
+    verified_only: bool = False,
+) -> dict[str, int]:
+    """구별 제보 건수 딕셔너리를 반환한다 (구명 → 건수).
+
+    verified_only=True면 Vision LLM이 확인한 제보만 집계한다.
+    """
+    df = reports_df
+    if verified_only and "photo_verified" in df.columns:
+        df = df[df["photo_verified"].astype(str) == "True"]
     counts: dict[str, int] = {}
-    for loc in reports_df.get("location", pd.Series(dtype=str)):
+    for loc in df.get("location", pd.Series(dtype=str)):
         loc_str = str(loc)
         for district in SEOUL_DISTRICT_COORDS:
             if district in loc_str:

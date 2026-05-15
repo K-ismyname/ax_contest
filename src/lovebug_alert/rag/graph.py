@@ -49,16 +49,19 @@ def build_daily_graph():
 
 def build_report_graph():
     """시민 제보를 처리하는 실시간 그래프를 빌드한다."""
+    from lovebug_alert.rag.nodes.classify import classify_photo
     from lovebug_alert.rag.nodes.report import save_report, update_map
 
     g = StateGraph(AgentState)
 
+    g.add_node("classify_photo", classify_photo)
     g.add_node("save_report", save_report)
     g.add_node("update_map", update_map)
     g.add_node("rag_citizen_response", rag_citizen_response)
     g.add_node("return_response", return_response)
 
-    g.set_entry_point("save_report")
+    g.set_entry_point("classify_photo")
+    g.add_edge("classify_photo", "save_report")
     g.add_edge("save_report", "update_map")
     g.add_edge("update_map", "rag_citizen_response")
     g.add_edge("rag_citizen_response", "return_response")

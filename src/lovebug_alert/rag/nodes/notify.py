@@ -41,6 +41,8 @@ def notify_official(state: AgentState) -> dict[str, Any]:
     payload = {
         "date": state["date"],
         "current_dd": state["current_dd"],
+        "district_dd": state.get("district_dd", {}),
+        "district_risk": state.get("district_risk", {}),
         "risk_level": state["risk_level"],
         "reports_count": len(state["reports_today"]),
         "rag_summary": state["rag_summary"],

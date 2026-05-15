@@ -15,6 +15,8 @@ from lovebug_alert.ui.state_loader import (
     get_dd_ratio, get_district_report_counts, get_prediction_dday, get_risk_color,
 )
 
+_VERIFIED_NOTE = "✅ Vision AI 검증 제보만 집계"
+
 DD_THRESHOLD = 419.0
 
 
@@ -33,7 +35,7 @@ def _render_risk_banner(risk_level: str, current_dd: float, date_str: str) -> No
 def _render_metric_cards(current_dd: float, reports_df: pd.DataFrame, date_str: str) -> None:
     today = date_str if date_str != "N/A" else dt.today().isoformat()
     dday, pred_date = get_prediction_dday(today)
-    district_counts = get_district_report_counts(reports_df)
+    district_counts = get_district_report_counts(reports_df, verified_only=True)
     high_risk = [d for d, c in district_counts.items() if c >= 1]
 
     col1, col2, col3, col4 = st.columns(4)
@@ -83,33 +85,46 @@ def _render_rag_section(risk_level: str, rag_summary: str) -> None:
             )
 
 
-def _render_district_map(reports_df: pd.DataFrame) -> None:
+_RISK_FOLIUM_COLOR = {"경보": "red", "주의": "orange", "관심": "blue", "정상": "lightgray"}
+_RISK_EMOJI = {"경보": "🔴", "주의": "🟡", "관심": "🔵", "정상": "🟢"}
+
+
+def _render_district_map(reports_df: pd.DataFrame, app_state: dict) -> None:
     left, right = st.columns(2)
-    district_counts = get_district_report_counts(reports_df)
-    sorted_districts = sorted(district_counts.items(), key=lambda x: x[1], reverse=True)
+    district_dd: dict[str, float] = app_state.get("district_dd", {})
+    district_risk: dict[str, str] = app_state.get("district_risk", {})
+    report_counts = get_district_report_counts(reports_df, verified_only=True)
+
+    # 경보 단계 → DD 높은 순으로 정렬
+    sorted_districts = sorted(
+        district_dd.items(), key=lambda x: x[1], reverse=True
+    )
 
     with left:
-        st.subheader("구별 제보 순위")
-        if sorted_districts:
-            for i, (name, count) in enumerate(sorted_districts[:10], 1):
-                tag = "🔴" if count >= 3 else "🟡" if count >= 1 else "🟢"
-                st.write(f"{i}. {tag} {name} — {count}건")
-        else:
-            st.write("오늘 접수된 제보가 없습니다.")
+        st.subheader("구별 경보 현황")
+        st.caption(_VERIFIED_NOTE)
+        for name, dd_val in sorted_districts[:10]:
+            level = district_risk.get(name, "정상")
+            count = report_counts.get(name, 0)
+            emoji = _RISK_EMOJI[level]
+            count_label = f" · 제보 {count}건" if count else ""
+            st.write(f"{emoji} **{name}** — DD {dd_val:.0f} ({level}){count_label}")
 
     with right:
-        st.subheader("서울 제보 지도")
+        st.subheader("서울 구별 경보 지도")
         m = folium.Map(location=[37.5665, 126.9780], zoom_start=11)
         for district, (lat, lng) in SEOUL_DISTRICT_COORDS.items():
-            count = district_counts.get(district, 0)
-            color = "red" if count >= 3 else "orange" if count >= 1 else "lightgray"
+            level = district_risk.get(district, "정상")
+            dd_val = district_dd.get(district, 0.0)
+            count = report_counts.get(district, 0)
+            color = _RISK_FOLIUM_COLOR[level]
             folium.CircleMarker(
                 [lat, lng],
-                radius=8 + count * 2,
+                radius=10,
                 color=color,
                 fill=True,
-                fill_opacity=0.6,
-                popup=f"{district}: {count}건",
+                fill_opacity=0.7,
+                popup=f"{district}<br>DD: {dd_val:.0f} | {level}<br>확인 제보: {count}건",
             ).add_to(m)
         components.html(m._repr_html_(), height=380)
 
@@ -127,4 +142,4 @@ def render_official_view(app_state: dict) -> None:
     _render_dd_progress(current_dd)
     _render_rag_section(risk_level, rag_summary)
     st.divider()
-    _render_district_map(reports_df)
+    _render_district_map(reports_df, app_state)

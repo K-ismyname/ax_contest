@@ -11,17 +11,21 @@ WATCH_THRESHOLD = 250.0   # 관심: ~60%
 CAUTION_THRESHOLD = 335.0 # 주의: ~80%
 
 
-def analyze_risk(state: AgentState) -> dict[str, Any]:
-    """현재 누적 DD를 임계값과 비교해 경보 레벨을 반환한다."""
-    dd = state["current_dd"]
-
+def _dd_to_level(dd: float) -> str:
     if dd >= DD_THRESHOLD:
-        level = "경보"
-    elif dd >= CAUTION_THRESHOLD:
-        level = "주의"
-    elif dd >= WATCH_THRESHOLD:
-        level = "관심"
-    else:
-        level = "정상"
+        return "경보"
+    if dd >= CAUTION_THRESHOLD:
+        return "주의"
+    if dd >= WATCH_THRESHOLD:
+        return "관심"
+    return "정상"
 
-    return {"risk_level": level}
+
+def analyze_risk(state: AgentState) -> dict[str, Any]:
+    """현재 누적 DD를 임계값과 비교해 서울 전체 및 구별 경보 레벨을 반환한다."""
+    level = _dd_to_level(state["current_dd"])
+    district_risk = {
+        district: _dd_to_level(dd)
+        for district, dd in state.get("district_dd", {}).items()
+    }
+    return {"risk_level": level, "district_risk": district_risk}
