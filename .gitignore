@@ -3,3 +3,19 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# 빌드 아티팩트
+src/*.egg-info/
+
+# 플러그인 캐시
+.superpowers/
+
+# 사용자 생성 데이터
+data/uploads/
+data/reports.csv
+data/processed/streamlit_state.json
+data/processed/report_map.html
+data/processed/faiss_index/
+
+# 대용량 원천 데이터 (재현 가능하므로 제외)
+data/raw/inaturalist_*.json
