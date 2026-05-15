@@ -17,6 +17,12 @@ from lovebug_alert.ui.state_loader import (
 )
 
 DD_THRESHOLD = 419.0
+
+
+@st.cache_resource
+def _get_report_graph():
+    from lovebug_alert.rag.graph import build_report_graph
+    return build_report_graph()
 _LOCATION_TYPES = ["공원/녹지", "주택가", "하천/수변", "도로변", "기타"]
 _SCALES = ["1~2마리", "10마리 이내", "대규모 (10마리 이상)"]
 _ACTIVE_LEVELS = {"관심", "주의", "경보"}
@@ -141,13 +147,6 @@ def _render_report_form(app_state: dict) -> None:
 
         with st.spinner("사진 분석 및 AI 대처법 생성 중..."):
             try:
-                from lovebug_alert.rag.graph import build_report_graph
-                import streamlit as _st
-
-                @_st.cache_resource
-                def _get_report_graph():
-                    return build_report_graph()
-
                 graph = _get_report_graph()
                 result = graph.invoke({
                     "date": dt.today().isoformat(),
