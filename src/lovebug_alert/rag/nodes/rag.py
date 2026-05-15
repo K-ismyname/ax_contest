@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
 from langchain_classic.chains import RetrievalQA
 from langchain_core.prompts import PromptTemplate
 
@@ -14,7 +14,7 @@ from lovebug_alert.rag.state import AgentState
 
 
 def _build_chain(prompt_str: str):
-    llm = ChatAnthropic(model="claude-sonnet-4-6", max_tokens=512)
+    llm = ChatOpenAI(model="gpt-4o-mini", max_tokens=512)
     prompt = PromptTemplate.from_template(prompt_str)
     return RetrievalQA.from_chain_type(
         llm=llm,

@@ -16,31 +16,31 @@ _PROMPT = (
 
 
 def classify_photo(state: AgentState) -> dict[str, Any]:
-    """제보 사진을 Claude Vision으로 분석해 러브버그 여부를 판별한다."""
+    """제보 사진을 OpenAI Vision으로 분석해 러브버그 여부를 판별한다."""
     photo_path = state.get("report", {}).get("photo_path", "")
     if not photo_path or not Path(photo_path).exists():
         return {"photo_verified": None, "verification_note": ""}
 
     try:
-        import anthropic
+        import openai
 
         path = Path(photo_path)
         media_type = _MEDIA_TYPES.get(path.suffix.lower(), "image/jpeg")
         image_data = base64.standard_b64encode(path.read_bytes()).decode("utf-8")
 
-        client = anthropic.Anthropic()
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
+        client = openai.OpenAI()
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
             max_tokens=128,
             messages=[{
                 "role": "user",
                 "content": [
-                    {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_data}},
+                    {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{image_data}"}},
                     {"type": "text", "text": _PROMPT},
                 ],
             }],
         )
-        note = response.content[0].text.strip()
+        note = response.choices[0].message.content.strip()
         return {"photo_verified": note.startswith("있음"), "verification_note": note}
 
     except Exception as e:
